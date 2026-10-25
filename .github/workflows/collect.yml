@@ -1,0 +1,47 @@
+name: Status abfragen
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # alle 5 Minuten (GitHub kann sich verspaeten)
+  workflow_dispatch:         # manuell ausloesbar unter "Actions"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Datenzweig "data" bereitstellen
+        run: |
+          git config user.name "weggis-monitor"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git fetch --depth=1 origin data
+            git worktree add -B data store origin/data
+          else
+            git worktree add --detach store
+            git -C store checkout --orphan data
+            git -C store rm -rfq .
+          fi
+
+      - name: Webseite abfragen
+        run: python3 collector/collect.py store/status.json
+
+      - name: Daten speichern
+        run: |
+          cd store
+          git add status.json
+          git commit -qm "Status $(TZ=Europe/Zurich date '+%d.%m.%Y %H:%M')"
+          for i in 1 2 3; do
+            git push -q origin data && exit 0
+            sleep $((i * 5))
+          done
+          exit 1

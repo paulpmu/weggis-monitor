@@ -1,0 +1,15 @@
+{
+  "name": "Weggis Monitor – Zingelistrasse",
+  "short_name": "Weggis",
+  "description": "Verlauf und Auswertung von Ampelzustand und Gefahrenstufe der Zingelistrasse, Weggis",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#003a70",
+  "lang": "de-CH",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

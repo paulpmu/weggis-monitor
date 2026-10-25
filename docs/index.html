@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weggis Monitor</title>
+<meta name="description" content="Verlauf und Auswertung von Ampelzustand und Gefahrenstufe der Zingelistrasse, Weggis">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Weggis">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12171d" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #ffffff; --text: #1c2733; --muted: #5b6672;
+    --border: #e2e6ea; --accent: #003a70; --grid: #edf0f3; --track: #edf0f3;
+    --warn-bg: #fff4e0; --warn: #8a5300;
+    --s0: #2e9d5b; --s1: #e8c21c; --s2: #f08a24; --s3: #d6402b; --s4: #8e1b2c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12171d; --card: #1b222b; --text: #e6ebf0; --muted: #98a3ae;
+      --border: #2b3540; --accent: #7fb2ea; --grid: #232c36; --track: #26303b;
+      --warn-bg: #3a2a10; --warn: #ffc56b;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  a { color: var(--accent); }
+
+  header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; }
+  header .t { flex: 1; min-width: 0; }
+  header h1 { margin: 0; font-size: 18px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header .meta { color: var(--muted); font-size: 12px; }
+  .iconbtn { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--card); color: var(--text); display: grid; place-items: center; cursor: pointer; padding: 0; }
+  .iconbtn svg { width: 20px; height: 20px; }
+  .iconbtn.spin svg { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  main { padding: 14px 16px 32px; max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; }
+  main > *, .row > * { min-width: 0; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .row { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .warn { background: var(--warn-bg); color: var(--warn); border-radius: 12px; padding: 10px 14px; font-size: 14px; display: none; }
+
+  .now { display: flex; align-items: center; gap: 14px; }
+  .lamp { width: 56px; height: 56px; border-radius: 50%; flex: none; box-shadow: inset 0 -4px 10px rgba(0,0,0,.15); background: var(--track); }
+  .bignum { font-size: 46px; font-weight: 700; line-height: 1; width: 56px; text-align: center; flex: none; }
+  .big { font-size: 19px; font-weight: 600; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .seg { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
+  .seg button { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--text);
+    padding: 9px 12px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
+  .seg button.active { background: var(--accent); color: var(--card); font-weight: 600; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px 12px; }
+  .kpi { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  #timeline { width: 100%; display: block; touch-action: pan-y; }
+  #timeline text { fill: var(--muted); font-size: 11px; }
+  #timeline .lbl { fill: var(--text); font-size: 12px; font-weight: 600; }
+  #timeline rect[data-k] { cursor: pointer; }
+  #timeline rect.sel { stroke: var(--text); stroke-width: 2; }
+  .info { margin-top: 10px; min-height: 44px; padding: 10px 12px; border-radius: 10px; background: var(--grid); font-size: 14px; }
+  .info .sub { margin: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+  .legend i, .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+
+  .bar { margin: 12px 0; }
+  .bar .top { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; margin-bottom: 5px; }
+  .bar .val { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .track { background: var(--track); border-radius: 6px; height: 12px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 6px; min-width: 3px; }
+
+  .events { list-style: none; margin: 0; padding: 0; max-height: 480px; overflow: auto; -webkit-overflow-scrolling: touch; }
+  .events li { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .events li:last-child { border-bottom: 0; }
+  .events time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .events .what { font-size: 14px; }
+  .events .d { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .empty { color: var(--muted); padding: 14px 0; text-align: center; font-size: 14px; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding: 0 16px 24px; }
+
+  @media (max-width: 560px) {
+    .row { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: 1fr 1fr; }
+    .seg { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="t">
+    <h1>Zingelistrasse Weggis</h1>
+    <div class="meta" id="meta">Lade Daten …</div>
+  </div>
+  <button class="iconbtn" id="reload" aria-label="Aktualisieren">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 12C2 16.97 6.03 21 11 21C13.39 21 15.68 20.06 17.4 18.4L15.9 16.9C14.63 18.25 12.86 19 11 19C4.76 19 1.64 11.46 6.05 7.05C10.46 2.64 18 5.77 18 12H15L19 16H19.1L23 12H20C20 7.03 15.97 3 11 3C6.03 3 2 7.03 2 12Z"/></svg>
+  </button>
+</header>
+
+<main>
+  <div class="warn" id="warn"></div>
+
+  <div class="row">
+    <div class="card">
+      <h2>Ampelzustand</h2>
+      <div class="now"><span class="lamp" id="nowLamp"></span>
+        <div><div class="big" id="nowAmpel">–</div><div class="sub" id="nowAmpelSince"></div></div></div>
+    </div>
+    <div class="card">
+      <h2>Gefahrenstufe</h2>
+      <div class="now"><span class="bignum" id="nowStufe">–</span>
+        <div><div class="big" id="nowStufeTxt">–</div><div class="sub" id="nowStufeSince"></div></div></div>
+    </div>
+  </div>
+
+  <div class="seg" id="ranges" role="tablist">
+    <button data-r="1">24 Std</button>
+    <button data-r="7" class="active">7 Tage</button>
+    <button data-r="30">30 Tage</button>
+    <button data-r="90">90 Tage</button>
+    <button data-r="365">1 Jahr</button>
+    <button data-r="0">Alles</button>
+  </div>
+
+  <div class="card">
+    <h2>Kennzahlen im Zeitraum</h2>
+    <div class="kpis" id="kpis"></div>
+  </div>
+
+  <div class="card">
+    <h2>Zeitverlauf</h2>
+    <svg id="timeline" height="200"></svg>
+    <div class="info" id="info"><span class="sub">Tippe auf einen Abschnitt für Details.</span></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="row">
+    <div class="card"><h2>Zeitanteil Ampelzustand</h2><div id="barsAmpel"></div></div>
+    <div class="card"><h2>Zeitanteil Gefahrenstufe</h2><div id="barsStufe"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>Statuswechsel</h2>
+    <ul class="events" id="events"></ul>
+  </div>
+
+  <div class="card">
+    <h2>Datenerfassung</h2>
+    <div class="sub" id="coverage"></div>
+  </div>
+</main>
+<footer>Quelle: <a href="https://weggis.info.geoprevent.com/" target="_blank" rel="noopener">weggis.info.geoprevent.com</a> · Abfrage automatisch alle ~5 Minuten</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const P = s => new Date(s);
+const TZ = 'Europe/Zurich';
+const fDT = new Intl.DateTimeFormat('de-CH', {timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'});
+const fD = new Intl.DateTimeFormat('de-CH', {timeZone: TZ, day: '2-digit', month: '2-digit', year: '2-digit'});
+const fT = new Intl.DateTimeFormat('de-CH', {timeZone: TZ, hour: '2-digit', minute: '2-digit'});
+const fDM = new Intl.DateTimeFormat('de-CH', {timeZone: TZ, day: 'numeric', month: 'numeric'});
+const fmt = d => fDT.format(d);
+const stufeColor = v => v == null ? css('--track') : css('--s' + Math.max(0, Math.min(4, v)));
+function dur(ms) {
+  const m = Math.max(0, Math.round(ms / 60000)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mi = m % 60;
+  if (d) return `${d} T ${h} Std`;
+  if (h) return `${h} Std ${mi} Min`;
+  return `${mi} Min`;
+}
+function isRed(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  return !!m && parseInt(m[1], 16) > 150 && parseInt(m[2], 16) < 90;
+}
+const isClosed = s => /gesperrt|geschlossen/i.test(s.text || '') || (isRed(s.color) && !/offen/i.test(s.text || ''));
+
+// Datenquelle: auf GitHub Pages automatisch der Zweig "data" desselben Repos
+function dataUrl() {
+  const q = new URLSearchParams(location.search).get('data');
+  if (q) return q;
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/i);
+  if (m) {
+    const repo = location.pathname.split('/').filter(Boolean)[0] || `${m[1]}.github.io`;
+    return `https://raw.githubusercontent.com/${m[1]}/${repo}/data/status.json`;
+  }
+  return 'status.json';
+}
+
+let D = null, RANGE = 7, SEL = null;
+try { RANGE = +(localStorage.getItem('range') ?? 7); } catch (e) {}
+
+async function load() {
+  $('reload').classList.add('spin');
+  try {
+    const url = dataUrl();
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(), {cache: 'no-store'});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    D = prepare(await r.json());
+    render();
+  } catch (e) {
+    $('meta').textContent = 'Daten konnten nicht geladen werden';
+    showWarn(D ? 'Aktualisierung fehlgeschlagen – angezeigt werden die zuletzt geladenen Daten.' :
+      'Noch keine Daten verfügbar. Die erste automatische Abfrage kann einige Minuten dauern.');
+  } finally {
+    $('reload').classList.remove('spin');
+  }
+}
+
+function prepare(d) {
+  const end = P(d.last_ok || d.last_poll);
+  const withEnd = list => list.map((s, i) => ({...s, s: P(s.start), e: i < list.length - 1 ? P(list[i + 1].start) : end}));
+  return {...d, A: withEnd(d.ampel || []), S: withEnd(d.stufe || []), end,
+          C: (d.coverage || []).map(([a, b]) => [P(a), P(b)])};
+}
+
+function showWarn(t) { $('warn').textContent = t; $('warn').style.display = t ? 'block' : 'none'; }
+
+function clip(list, from, to) {
+  return list.map(x => ({...x, a: Math.max(x.s, from), b: Math.min(x.e, to)})).filter(x => x.b > x.a);
+}
+
+function render() {
+  const now = new Date();
+  if (!D.current) { showWarn('Noch keine erfolgreiche Abfrage.'); return; }
+  const age = now - P(D.last_ok);
+  $('meta').textContent = `Stand ${fT.format(P(D.last_ok))} Uhr · vor ${dur(age)}`;
+  showWarn(age > 75 * 60e3 ? `Achtung: Letzte erfolgreiche Abfrage vor ${dur(age)}. Die Anzeige ist möglicherweise nicht aktuell.` : '');
+
+  const c = D.current, la = D.A.at(-1), ls = D.S.at(-1);
+  $('nowLamp').style.background = c.ampel_color || css('--track');
+  $('nowAmpel').textContent = c.ampel_text || '–';
+  $('nowAmpelSince').textContent = `seit ${fmt(la.s)} · ${dur(now - la.s)}`;
+  $('nowStufe').textContent = c.stufe ?? '–';
+  $('nowStufe').style.color = stufeColor(c.stufe);
+  $('nowStufeTxt').textContent = `Stufe ${c.stufe ?? '–'}`;
+  $('nowStufeSince').textContent = `seit ${fmt(ls.s)} · ${dur(now - ls.s)}`;
+
+  const earliest = Math.min(D.A[0].s, D.S[0].s);
+  const to = D.end, from = new Date(RANGE ? Math.max(now - RANGE * 864e5, earliest) : earliest);
+  const A = clip(D.A, from, to), S = clip(D.S, from, to);
+  const total = A.reduce((t, x) => t + (x.b - x.a), 0);
+  const closed = A.filter(isClosed), closedMs = closed.reduce((t, x) => t + (x.b - x.a), 0);
+  const sTotal = S.reduce((t, x) => t + (x.b - x.a), 0);
+  const avgS = sTotal ? S.reduce((t, x) => t + (x.value ?? 0) * (x.b - x.a), 0) / sTotal : null;
+  $('kpis').innerHTML = [
+    [D.A.filter((x, i) => i && x.s >= from).length, 'Ampelwechsel'],
+    [D.S.filter((x, i) => i && x.s >= from).length, 'Wechsel Gefahrenstufe'],
+    [closed.length, 'Sperrungen'],
+    [total ? (100 * closedMs / total).toFixed(1) + ' %' : '–', 'Zeit gesperrt'],
+    [closed.length ? dur(Math.max(...closed.map(x => x.b - x.a))) : '–', 'Längste Sperrung'],
+    [S.length ? Math.max(...S.map(x => x.value ?? 0)) : '–', 'Höchste Gefahrenstufe'],
+    [avgS != null ? avgS.toFixed(2) : '–', 'Ø Gefahrenstufe'],
+  ].map(([v, l]) => `<div><div class="kpi">${v}</div><div class="sub">${l}</div></div>`).join('');
+
+  drawTimeline(A, S, from, to);
+  drawBars('barsAmpel', A, x => x.text + x.color, x => x.text, x => x.color);
+  drawBars('barsStufe', S, x => x.value, x => 'Stufe ' + x.value, x => stufeColor(x.value));
+  drawEvents(from, now);
+  const errs = (D.errors || []).filter(e => P(e.ts) >= from);
+  $('coverage').innerHTML = `${D.polls_ok} erfolgreiche von ${D.polls_total} Abfragen seit ${fmt(P(D.first_poll))}.` +
+    ` Zustände, die vor Beginn der Aufzeichnung begonnen haben, werden aus der «Seit …»-Angabe der Webseite übernommen.` +
+    (errs.length ? `<br><b>${errs.length} fehlgeschlagene Abfragen im Zeitraum</b>, zuletzt ${fmt(P(errs.at(-1).ts))}: ${esc(errs.at(-1).error)}` : '');
+}
+
+function drawTimeline(A, S, from, to) {
+  const svg = $('timeline'), W = svg.clientWidth || 340, L = 2, R = 2;
+  const x = t => L + (t - from) / (to - from) * (W - L - R);
+  const rows = {a: 22, s: 84, c: 144}, BH = 30;
+  const span = to - from;
+  const steps = [36e5, 2*36e5, 3*36e5, 6*36e5, 12*36e5, 864e5, 2*864e5, 7*864e5, 14*864e5, 30*864e5, 91*864e5, 182*864e5];
+  const maxTicks = Math.max(3, Math.floor(W / 70));
+  const step = steps.find(s => span / s <= maxTicks) || 365 * 864e5;
+  let h = '';
+  const t0 = new Date(from); t0.setMinutes(0, 0, 0); if (step >= 864e5) t0.setHours(0);
+  for (let t = +t0; t <= +to; t += step) {
+    if (t < +from) continue;
+    const xx = x(t), d = new Date(t);
+    h += `<line x1="${xx}" x2="${xx}" y1="16" y2="178" stroke="${css('--grid')}"/>`;
+    if (xx > 18 && xx < W - 18)
+      h += `<text x="${xx}" y="194" text-anchor="middle">${step < 864e5 ? fT.format(d) : fDM.format(d)}</text>`;
+  }
+  h += `<text class="lbl" x="0" y="${rows.a - 6}">Ampel</text><text class="lbl" x="0" y="${rows.s - 6}">Gefahrenstufe</text><text class="lbl" x="0" y="${rows.c - 6}">Monitor aktiv</text>`;
+  A.forEach((s, i) => h += `<rect data-k="a${i}" x="${x(s.a)}" y="${rows.a}" width="${Math.max(1.5, x(s.b) - x(s.a))}" height="${BH}" rx="3" fill="${s.color}"/>`);
+  S.forEach((s, i) => {
+    const w = x(s.b) - x(s.a);
+    h += `<rect data-k="s${i}" x="${x(s.a)}" y="${rows.s}" width="${Math.max(1.5, w)}" height="${BH}" rx="3" fill="${stufeColor(s.value)}"/>`;
+    if (w > 18) h += `<text x="${x(s.a) + w / 2}" y="${rows.s + 20}" text-anchor="middle" style="fill:#fff;font-weight:700;pointer-events:none">${s.value}</text>`;
+  });
+  h += `<rect x="${L}" y="${rows.c}" width="${W - L - R}" height="16" rx="3" fill="${css('--track')}"/>`;
+  D.C.forEach(([a, b]) => { a = Math.max(a, from); b = Math.min(b, to); if (b >= a)
+    h += `<rect x="${x(a)}" y="${rows.c}" width="${Math.max(2, x(b) - x(a))}" height="16" rx="3" fill="${css('--accent')}" opacity=".55"/>`; });
+  svg.innerHTML = h;
+
+  const show = k => {
+    svg.querySelectorAll('rect.sel').forEach(r => r.classList.remove('sel'));
+    if (!k) return;
+    const s = (k[0] === 'a' ? A : S)[+k.slice(1)];
+    if (!s) return;
+    svg.querySelector(`rect[data-k="${k}"]`)?.classList.add('sel');
+    const col = k[0] === 'a' ? s.color : stufeColor(s.value);
+    $('info').innerHTML = `<b><span class="dot" style="background:${col}"></span>${k[0] === 'a' ? esc(s.text) : 'Gefahrenstufe ' + s.value}</b>` +
+      `<div class="sub">${fmt(s.s)} – ${s === (k[0] === 'a' ? A : S).at(-1) ? 'jetzt' : fmt(s.e)} · Dauer ${dur(s.e - s.s)}</div>`;
+  };
+  svg.onclick = e => { SEL = e.target.dataset?.k || null; if (SEL) show(SEL); };
+  svg.onmousemove = e => { const k = e.target.dataset?.k; if (k) show(k); };
+  if (SEL) show(SEL);
+
+  const seen = new Map();
+  D.A.forEach(s => seen.set(s.text + s.color, `<span><i style="background:${s.color}"></i>${esc(s.text)}</span>`));
+  $('legend').innerHTML = [...seen.values()].join('') +
+    [...new Set(D.S.map(s => s.value))].sort().map(v => `<span><i style="background:${stufeColor(v)}"></i>Stufe ${v}</span>`).join('');
+}
+
+function drawBars(id, list, keyFn, labelFn, colorFn) {
+  const total = list.reduce((t, x) => t + (x.b - x.a), 0), m = new Map();
+  list.forEach(x => { const k = keyFn(x), e = m.get(k) || {x, ms: 0}; e.ms += x.b - x.a; m.set(k, e); });
+  const rows = [...m.values()].sort((a, b) => b.ms - a.ms);
+  $(id).innerHTML = rows.length ? rows.map(e => {
+    const p = 100 * e.ms / total, col = colorFn(e.x);
+    return `<div class="bar"><div class="top"><span><span class="dot" style="background:${col}"></span>${esc(labelFn(e.x))}</span>
+      <span class="val">${p.toFixed(1)} % · ${dur(e.ms)}</span></div>
+      <div class="track"><div class="fill" style="width:${p}%;background:${col}"></div></div></div>`;
+  }).join('') : '<div class="empty">Keine Daten im Zeitraum</div>';
+}
+
+function drawEvents(from, now) {
+  const ev = [];
+  D.A.forEach((s, i) => { if (i) ev.push({t: s.s, cur: i === D.A.length - 1, d: (i === D.A.length - 1 ? now : s.e) - s.s,
+    html: `Ampel: <span class="dot" style="background:${D.A[i-1].color}"></span>${esc(D.A[i-1].text)} → <span class="dot" style="background:${s.color}"></span><b>${esc(s.text)}</b>`}); });
+  D.S.forEach((s, i) => { if (i) ev.push({t: s.s, cur: i === D.S.length - 1, d: (i === D.S.length - 1 ? now : s.e) - s.s,
+    html: `Gefahrenstufe: ${D.S[i-1].value} → <b style="color:${stufeColor(s.value)}">${s.value}</b>`}); });
+  const rows = ev.filter(e => e.t >= from).sort((a, b) => b.t - a.t);
+  $('events').innerHTML = rows.length ? rows.map(e =>
+    `<li><time>${fD.format(e.t)}<br>${fT.format(e.t)} Uhr</time><div><div class="what">${e.html}</div>` +
+    `<div class="d">Dauer ${dur(e.d)}${e.cur ? ' (andauernd)' : ''}</div></div></li>`).join('')
+    : '<li class="empty" style="display:block">Keine Statuswechsel im Zeitraum.</li>';
+}
+
+$('ranges').querySelectorAll('button').forEach(b => b.classList.toggle('active', +b.dataset.r === RANGE));
+$('ranges').onclick = e => {
+  if (!e.target.dataset.r) return;
+  RANGE = +e.target.dataset.r; SEL = null;
+  try { localStorage.setItem('range', RANGE); } catch (err) {}
+  $('ranges').querySelectorAll('button').forEach(b => b.classList.toggle('active', b === e.target));
+  $('info').innerHTML = '<span class="sub">Tippe auf einen Abschnitt für Details.</span>';
+  D && render();
+};
+$('reload').onclick = load;
+let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => D && render(), 150); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+setInterval(() => { if (!document.hidden) load(); }, 60000);
+load();
+</script>
+</body>
+</html>
