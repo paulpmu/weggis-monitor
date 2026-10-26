@@ -7,14 +7,15 @@ als Web-App – optimiert für iPhone und iPad (Safari).
 ## So funktioniert es
 
 ```
-GitHub Actions (alle ~5 Min.)  ──►  Zweig "data": status.json  ──►  Web-App (GitHub Pages)
+GitHub Actions (alle 5 Min.)   ──►  Zweig "data": status.json  ──►  Web-App (GitHub Pages)
    fragt die Webseite ab              Verlauf aller Zustände         liest status.json
 ```
 
 - `collector/collect.py` – liest die Webseite und führt `status.json` nach
   (nur Python-Standardbibliothek).
-- `.github/workflows/collect.yml` – Zeitplan alle 5 Minuten; speichert die Daten
-  im Zweig `data` (getrennt vom Programmcode).
+- `.github/workflows/collect.yml` – jeder Lauf fragt ca. 55 Minuten lang alle
+  5 Minuten ab und startet am Ende selbst den nächsten Lauf (ein stündlicher
+  Zeitplan dient als Reserve). Die Daten landen im Zweig `data`.
 - `docs/` – die Web-App (eine HTML-Datei, keine externen Abhängigkeiten).
   Auf GitHub Pages findet sie die Daten automatisch.
 
@@ -42,8 +43,9 @@ Die App startet dann im Vollbild mit eigenem Symbol.
 
 ## Gut zu wissen
 
-- GitHub führt Zeitpläne nicht immer pünktlich aus; Abstände von 5–20 Minuten
-  sind normal. Für Sperrungen über Stunden ist das ausreichend genau.
+- Abfrage anhalten: GitHub → Actions → «Status abfragen» → «…» → «Disable workflow».
+  Wieder starten: «Enable workflow», dann «Run workflow».
+- Zwischen zwei Läufen entsteht jeweils eine Lücke von ca. 1–2 Minuten.
 - Der Beginn eines Zustands wird aus der «Seit …»-Angabe der Webseite übernommen.
 - Ändert Geoprevent den Aufbau der Webseite, erscheinen Fehler unter
   «Datenerfassung» und das Programm muss angepasst werden.
