@@ -226,7 +226,12 @@ async function load() {
 
 function prepare(d) {
   const end = P(d.last_ok || d.last_poll);
-  const withEnd = list => list.map((s, i) => ({...s, s: P(s.start), e: i < list.length - 1 ? P(list[i + 1].start) : end}));
+  // Nichts vor Beginn der Aufzeichnung anzeigen: Abschnitte, die frueher begonnen haben, starten hier
+  const t0 = P(d.first_poll || d.last_poll);
+  const withEnd = list => list.map((s, i) => {
+    const st = P(s.start), e = i < list.length - 1 ? P(list[i + 1].start) : end;
+    return {...s, s: st < t0 ? t0 : st, e: e < t0 ? t0 : e, clipped: st < t0};
+  }).filter(x => x.e > x.s || x === list.at(-1));
   return {...d, A: withEnd(d.ampel || []), S: withEnd(d.stufe || []), end,
           C: (d.coverage || []).map(([a, b]) => [P(a), P(b)])};
 }
@@ -247,11 +252,12 @@ function render() {
   const c = D.current, la = D.A.at(-1), ls = D.S.at(-1);
   $('nowLamp').style.background = c.ampel_color || css('--track');
   $('nowAmpel').textContent = c.ampel_text || '–';
-  $('nowAmpelSince').textContent = `seit ${fmt(la.s)} · ${dur(now - la.s)}`;
+  const since = x => x.clipped ? `seit Aufzeichnungsbeginn ${fmt(x.s)}` : `seit ${fmt(x.s)}`;
+  $('nowAmpelSince').textContent = `${since(la)} · ${dur(now - la.s)}`;
   $('nowStufe').textContent = c.stufe ?? '–';
   $('nowStufe').style.color = stufeColor(c.stufe);
   $('nowStufeTxt').textContent = `Stufe ${c.stufe ?? '–'}`;
-  $('nowStufeSince').textContent = `seit ${fmt(ls.s)} · ${dur(now - ls.s)}`;
+  $('nowStufeSince').textContent = `${since(ls)} · ${dur(now - ls.s)}`;
 
   const earliest = Math.min(D.A[0].s, D.S[0].s);
   const to = D.end, from = new Date(RANGE ? Math.max(now - RANGE * 864e5, earliest) : earliest);
@@ -276,7 +282,7 @@ function render() {
   drawEvents(from, now);
   const errs = (D.errors || []).filter(e => P(e.ts) >= from);
   $('coverage').innerHTML = `${D.polls_ok} erfolgreiche von ${D.polls_total} Abfragen seit ${fmt(P(D.first_poll))}.` +
-    ` Zustände, die vor Beginn der Aufzeichnung begonnen haben, werden aus der «Seit …»-Angabe der Webseite übernommen.` +
+    ` Angezeigt wird nur der Zeitraum ab Beginn der Aufzeichnung.` +
     (errs.length ? `<br><b>${errs.length} fehlgeschlagene Abfragen im Zeitraum</b>, zuletzt ${fmt(P(errs.at(-1).ts))}: ${esc(errs.at(-1).error)}` : '');
 }
 

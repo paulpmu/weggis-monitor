@@ -46,7 +46,9 @@ Die App startet dann im Vollbild mit eigenem Symbol.
 - Abfrage anhalten: GitHub → Actions → «Status abfragen» → «…» → «Disable workflow».
   Wieder starten: «Enable workflow», dann «Run workflow».
 - Zwischen zwei Läufen entsteht jeweils eine Lücke von ca. 1–2 Minuten.
-- Der Beginn eines Zustands wird aus der «Seit …»-Angabe der Webseite übernommen.
+- Das Dashboard zeigt nur den Zeitraum ab Beginn der Aufzeichnung (erste Abfrage).
+  Innerhalb dieses Zeitraums wird der Beginn eines Zustands aus der «Seit …»-Angabe
+  der Webseite übernommen.
 - Ändert Geoprevent den Aufbau der Webseite, erscheinen Fehler unter
   «Datenerfassung» und das Programm muss angepasst werden.
 - Die Rohdaten liegen in `status.json` im Zweig `data` (JSON).
