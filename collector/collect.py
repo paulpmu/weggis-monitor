@@ -82,8 +82,13 @@ def parse_since(text, now):
         if day is None:
             for name, wd in WEEKDAYS.items():
                 if name in t:
-                    delta = (now.weekday() - wd) % 7 or 7
-                    day = now.date() - timedelta(days=delta)
+                    if re.search(r"letzte[nmr]?\s", t):
+                        # 'letzten Montag' = Montag der vorherigen Kalenderwoche
+                        monday = now.date() - timedelta(days=now.weekday())
+                        day = monday - timedelta(days=7 - wd)
+                    else:
+                        delta = (now.weekday() - wd) % 7 or 7
+                        day = now.date() - timedelta(days=delta)
                     break
     if day is None:
         return None
@@ -140,15 +145,26 @@ def load_state(path):
 
 
 def add_segment(segments, key, now, since, prev_ok, extra):
-    """Beginnt einen neuen Zustandsabschnitt, falls sich der Zustand geaendert hat.
-    Startzeit: 'Seit'-Angabe der Webseite, aber nicht vor der letzten Abfrage,
-    die noch den alten Zustand zeigte."""
-    if segments and segments[-1]["key"] == key:
-        return
-    start = since if since and since <= now else now
-    if prev_ok and segments:
-        start = max(start, datetime.fromisoformat(prev_ok))
-    segments.append({"key": key, "start": iso(start), **extra})
+    """Fuehrt die Zustandsabschnitte nach.
+
+    Startzeit eines Abschnitts: 'Seit'-Angabe der Webseite, aber nie vor der
+    letzten Abfrage, die noch den vorherigen Zustand zeigte ('floor').
+    Gleicher Zustand mit einer 'Seit'-Angabe nach der letzten Abfrage bedeutet,
+    dass der Zustand zwischenzeitlich unterbrochen war -> neuer Abschnitt."""
+    cur = segments[-1] if segments else None
+    floor = datetime.fromisoformat(prev_ok) if prev_ok and cur else None
+    since = since if since and since <= now else None
+    if cur and cur["key"] == key:
+        if not (since and floor and since > floor):
+            # Beginn des laufenden Abschnitts anhand der Webseite praezisieren
+            cur_floor = cur.get("floor")
+            if since and since < datetime.fromisoformat(cur["start"]) and \
+                    (cur_floor is None or since >= datetime.fromisoformat(cur_floor)):
+                cur["start"] = iso(since)
+            return
+    start = max(since or now, floor) if floor else (since or now)
+    segments.append({"key": key, "start": iso(start),
+                     "floor": iso(floor) if floor else None, **extra})
 
 
 def update(state, data, now):
