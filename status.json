@@ -1,10 +1,10 @@
 {
  "source": "https://weggis.info.geoprevent.com/",
  "first_poll": "2026-10-26T06:19:16+01:00",
- "last_poll": "2026-10-28T07:50:13+01:00",
- "last_ok": "2026-10-28T07:50:13+01:00",
- "polls_ok": 647,
- "polls_total": 647,
+ "last_poll": "2026-10-28T07:55:00+01:00",
+ "last_ok": "2026-10-28T07:55:00+01:00",
+ "polls_ok": 648,
+ "polls_total": 648,
  "current": {
   "ampel_color": "#FFB300",
   "ampel_text": "Strasse offen",
@@ -60,7 +60,7 @@
  "coverage": [
   [
    "2026-10-26T06:19:16+01:00",
-   "2026-10-28T07:50:13+01:00"
+   "2026-10-28T07:55:00+01:00"
   ]
  ],
  "errors": []
