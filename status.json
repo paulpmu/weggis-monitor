@@ -1,10 +1,10 @@
 {
  "source": "https://weggis.info.geoprevent.com/",
  "first_poll": "2026-10-26T06:19:16+01:00",
- "last_poll": "2026-11-11T22:05:00+01:00",
- "last_ok": "2026-11-11T22:05:00+01:00",
- "polls_ok": 5230,
- "polls_total": 5230,
+ "last_poll": "2026-11-11T22:05:13+01:00",
+ "last_ok": "2026-11-11T22:05:13+01:00",
+ "polls_ok": 5231,
+ "polls_total": 5231,
  "current": {
   "ampel_color": "#D12B2B",
   "ampel_text": "Strasse gesperrt",
@@ -263,7 +263,7 @@
  "coverage": [
   [
    "2026-10-26T06:19:16+01:00",
-   "2026-11-11T22:05:00+01:00"
+   "2026-11-11T22:05:13+01:00"
   ]
  ],
  "errors": []
